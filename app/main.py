@@ -10,5 +10,5 @@ app = FastAPI(
 @app.get("/")
 def root():
     return {
-        "message": "Smart Parking API funcionando"
+        "message": "Smart Parking API funcionando - Probando mi rama"
     }
