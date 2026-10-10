@@ -50,6 +50,15 @@ La API queda disponible en <http://127.0.0.1:8000>. La documentación interactiv
 
 ## Configuración
 
+Por defecto, CORS permite peticiones desde `localhost` y `127.0.0.1` en los puertos `5173` y `3000`. Para usar otros orígenes, definí `CORS_ORIGINS` como una lista separada por comas antes de iniciar el servidor, por ejemplo:
+
+```bash
+export CORS_ORIGINS="https://frontend.example.com,http://localhost:5173"
+uvicorn app.main:app --reload
+```
+
+Incluí el esquema y el puerto de cada origen cuando corresponda. La aplicación lee esta variable del entorno del proceso, no del archivo `.env`.
+
 El archivo `.env` está excluido de Git. Aunque el entorno local puede contener variables `DB_*`, la aplicación todavía no las carga ni abre conexiones a PostgreSQL. Cuando se incorpore la configuración de base de datos, agregá un `.env.example` con los nombres de las variables necesarias y documentá su uso aquí; no subas credenciales reales al repositorio.
 
 ## Estado del proyecto
