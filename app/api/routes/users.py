@@ -1,20 +1,3 @@
-from app.schemas.email_verification import (
-    EmailVerificationRequest,
-    ConfirmEmailVerificationRequest,
-    EmailVerificationResponse,
-)
-
-from app.services.email_verification_service import (
-    create_email_verification,
-    confirm_email_verification,
-    UserNotFoundError,
-    EmailAlreadyVerifiedError,
-    VerificationCodeSaveError,
-    VerificationEmailSendingError,
-    InvalidVerificationCodeError,
-    ExpiredVerificationCodeError,
-    TooManyVerificationAttemptsError,
-)
 
 from fastapi import APIRouter, HTTPException, status
 
@@ -30,7 +13,6 @@ from app.services.user_service import (
 from app.schemas.auth import LoginRequest, LoginResponse, LoginUser
 from app.security.tokens import create_access_token
 from app.services.auth_service import (
-    EmailNotVerifiedError,
     InvalidCredentialsError,
     authenticate_user,
 )
@@ -86,11 +68,6 @@ def login_route(credentials: LoginRequest) -> LoginResponse:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Correo electrónico o contraseña incorrectos",
         ) from error
-    except EmailNotVerifiedError as error:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Debés verificar tu correo electrónico antes de iniciar sesión",
-        ) from error
     except DatabaseUnavailableError as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -119,76 +96,4 @@ def login_route(credentials: LoginRequest) -> LoginResponse:
             email=user["email"],
             role=user["role"],
         ),
-    )
-
-
-@router.post(
-    "/verify-email/request",
-    response_model=EmailVerificationResponse,
-)
-def request_email_verification(
-    request: EmailVerificationRequest,
-) -> EmailVerificationResponse:
-    try:
-        create_email_verification(request.email)
-    except UserNotFoundError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No se encontró una cuenta con ese correo",
-        ) from error
-    except EmailAlreadyVerifiedError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="El correo electrónico ya está verificado",
-        ) from error
-    except VerificationEmailSendingError as error:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="No se pudo enviar el correo de verificación. Intentá nuevamente más tarde.",
-        ) from error
-
-    return EmailVerificationResponse(
-        message="Si la cuenta es válida, se enviará un correo de verificación."
-    )
-
-@router.post(
-    "/verify-email/confirm",
-    response_model=EmailVerificationResponse,
-)
-def confirm_email_verification_route(
-    request: ConfirmEmailVerificationRequest,
-) -> EmailVerificationResponse:
-    try:
-        confirm_email_verification(
-            email=request.email,
-            code=request.code,
-        )
-    except UserNotFoundError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No se encontró una cuenta con ese correo",
-        ) from error
-    except EmailAlreadyVerifiedError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="El correo electrónico ya está verificado",
-        ) from error
-    except ExpiredVerificationCodeError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El código venció; solicitá uno nuevo",
-        ) from error
-    except TooManyVerificationAttemptsError as error:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Se alcanzó el límite de intentos",
-        ) from error
-    except InvalidVerificationCodeError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El código de verificación no es válido",
-        ) from error
-
-    return EmailVerificationResponse(
-        message="Correo electrónico verificado correctamente"
     )

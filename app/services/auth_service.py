@@ -1,4 +1,3 @@
-
 import psycopg
 
 from app.repositories.user_repository import get_user_by_email
@@ -7,10 +6,6 @@ from app.services.user_service import DatabaseUnavailableError
 
 
 class InvalidCredentialsError(Exception):
-    pass
-
-
-class EmailNotVerifiedError(Exception):
     pass
 
 
@@ -25,9 +20,6 @@ def authenticate_user(email: str, password: str) -> dict:
 
     if not verify_password(password, user["password_hash"]):
         raise InvalidCredentialsError
-
-    if not user["email_verified"]:
-        raise EmailNotVerifiedError
 
     return {
         "id": user["id"],
