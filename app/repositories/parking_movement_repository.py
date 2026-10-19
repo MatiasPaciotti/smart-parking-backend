@@ -86,15 +86,6 @@ def register_entry(user_id: int, parking_lot_id: str) -> dict:
                 ) from exc
             raise
 
-        connection.execute(
-            """
-            INSERT INTO parking_movements
-                (user_id, parking_lot_id, event_type)
-            VALUES (%s, %s, 'entry')
-            """,
-            (user_id, database_id),
-        )
-
     return {
         "parking_lot_id": parking_lot_id,
         "event_type": "entry",
@@ -139,15 +130,6 @@ def register_exit(user_id: int, parking_lot_id: str) -> dict:
             raise ParkingMovementConflict(
                 "El usuario no tiene un vehículo estacionado en ese lugar"
             )
-
-        connection.execute(
-            """
-            INSERT INTO parking_movements
-                (user_id, parking_lot_id, event_type)
-            VALUES (%s, %s, 'exit')
-            """,
-            (user_id, database_id),
-        )
 
         occupied = connection.execute(
             """
