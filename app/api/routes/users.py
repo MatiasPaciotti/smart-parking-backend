@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, HTTPException, status
 
 from app.schemas.user import (
@@ -16,6 +17,13 @@ from app.services.user_service import (
     register_user,
     resend_email_code,
     verify_email_code,
+)
+
+from app.schemas.auth import LoginRequest, LoginResponse, LoginUser
+from app.security.tokens import create_access_token
+from app.services.auth_service import (
+    InvalidCredentialsError,
+    authenticate_user,
 )
 
 router = APIRouter(prefix="/api/v1/auth", tags=["users"])
@@ -66,6 +74,49 @@ def register_user_route(registration: UserRegistration) -> UserRegistrationRespo
         user=user,
     )
 
+
+
+@router.post("/login", response_model=LoginResponse)
+def login_route(credentials: LoginRequest) -> LoginResponse:
+    try:
+        user = authenticate_user(
+            email=credentials.email,
+            password=credentials.password.get_secret_value(),
+        )
+    except InvalidCredentialsError as error:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Correo electrónico o contraseña incorrectos",
+        ) from error
+    except DatabaseUnavailableError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No se pudo consultar la base de datos",
+        ) from error
+
+    try:
+        access_token = create_access_token(
+            user_id=user["id"],
+            email=user["email"],
+            role=user["role"],
+        )
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El servicio de autenticación no está configurado correctamente",
+        ) from error
+
+    return LoginResponse(
+        message="Inicio de sesión exitoso",
+        access_token=access_token,
+        token_type="bearer",
+        user=LoginUser(
+            id=user["id"],
+            full_name=user["full_name"],
+            email=user["email"],
+            role=user["role"],
+        ),
+    )
 
 @router.post(
     "/verify-email",
