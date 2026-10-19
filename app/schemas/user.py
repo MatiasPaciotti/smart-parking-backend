@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, SecretStr, field_validator
 
 EMAIL_PATTERN = re.compile(
     r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
-    r"(?:unsam\.edu\.ar|estudiantes\.unsam\.edu\.ar)$",
+    r"(?:unsam\.edu\.ar|estudiantes\.unsam\.edu\.ar|unsam-bue\.edu\.ar|gmail\.com)$",
     re.IGNORECASE,
 )
 PLATE_PATTERN = re.compile(r"^(?:[A-Z]{3}[0-9]{3}|[A-Z]{2}[0-9]{3}[A-Z]{2})$")
@@ -40,7 +40,7 @@ class UserRegistration(BaseModel):
         value = value.strip().lower()
         if not EMAIL_PATTERN.fullmatch(value):
             raise ValueError(
-                "Ingresá un correo válido de @unsam.edu.ar o @estudiantes.unsam.edu.ar"
+                "Ingresá un correo válido de @unsam.edu.ar, @estudiantes.unsam.edu.ar, @unsam-bue.edu.ar o @gmail.com"
             )
         local_part = value.split("@", maxsplit=1)[0]
         if ".." in local_part or local_part.startswith(".") or local_part.endswith("."):
@@ -65,8 +65,27 @@ class UserResponse(BaseModel):
     is_on_campus: bool
     plate: str
     dni: int
+    email_verified: bool
 
 
 class UserRegistrationResponse(BaseModel):
     message: str
     user: UserResponse
+
+
+class VerifyEmailRequest(BaseModel):
+    email: str
+    code: str = Field(pattern=r"^[0-9]{6}$")
+
+
+class ResendVerificationRequest(BaseModel):
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_institutional_email(cls, value: str) -> str:
+        return UserRegistration.validate_institutional_email(value)
+
+
+class MessageResponse(BaseModel):
+    message: str
