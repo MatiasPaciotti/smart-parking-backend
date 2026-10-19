@@ -53,44 +53,34 @@ La API queda disponible en <http://127.0.0.1:8000>. La documentación interactiv
 
 ## Rutas disponibles
 
+### Rutas de la API
+
 | Método | Ruta | Descripción |
 | --- | --- | --- |
 | `GET` | `/` | Confirma que la API está en ejecución. |
-| `POST` | `/api/v1/auth/register` | Registra una persona y su patente. |
+| `POST` | `/api/v1/auth/register` | Registra una cuenta no verificada y envía un código. |
+| `POST` | `/api/v1/auth/verify-email` | Verifica el código enviado por correo. |
+| `POST` | `/api/v1/auth/resend-verification` | Reenvía el código, hasta 3 veces por hora. |
 
-El endpoint recibe `nombre`, `apellido`, `email`, `patente`, `dni` y `password`.
-La contraseña debe tener entre 8 y 128 caracteres; se almacena usando Argon2id y
-nunca se devuelve en la respuesta. Acepta únicamente
-correos de `@unsam.edu.ar` o `@estudiantes.unsam.edu.ar`; normaliza la patente a
-mayúsculas y elimina espacios antes de validar formatos `AAA123` y `AA123AA`.
-Responde `201` al crear el usuario y `409` si el correo o la patente ya existen.
-La patente duplicada devuelve el detalle `La patente ingresada ya se encuentra
-registrada`. El nombre y apellido se guardan combinados en `full_name`; el rol
-se asigna como `user`, el estado como `active` y el usuario comienza fuera del
-campus. La respuesta sigue los campos de la tabla `user`. El frontend debe redirigir al dashboard tras un
-`201`; este repositorio contiene únicamente el backend.
+### Detalles de validación
 
-La aplicación carga las variables de `.env` automáticamente. Configurá
-`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` y `DB_PASSWORD`; `DB_SSLMODE` es
-opcional y por defecto usa `require`. El registro persiste en la tabla existente
-`user`; el `dni`, el correo y la patente deben ser únicos según las restricciones
-de PostgreSQL.
+**Registro (`POST /api/v1/auth/register`)**
 
-## Configuración
+Campos requeridos: `nombre`, `apellido`, `email`, `patente`, `dni`, `password`
 
-Por defecto, CORS permite peticiones desde `localhost` y `127.0.0.1` en los puertos `5173` y `3000`. Para usar otros orígenes, definí `CORS_ORIGINS` como una lista separada por comas antes de iniciar el servidor, por ejemplo:
+- **Email**: acepta dominios `@unsam.edu.ar`, `@estudiantes.unsam.edu.ar`, `@unsam-bue.edu.ar`
+- **Contraseña**: entre 8 y 128 caracteres, almacenada con Argon2id y nunca devuelta en la respuesta
+- **Patente**: formato `AAA123` o `AA123AA` (normaliza a mayúsculas y elimina espacios)
+- **Nombre y apellido**: se guardan combinados en `full_name`
+- **Rol**: asignado como `user` por defecto
+- **Estado**: asignado como `active` y `email_verified = false`
 
-```bash
-export CORS_ORIGINS="https://frontend.example.com,http://localhost:5173"
-uvicorn app.main:app --reload
-```
+**Código de verificación**
 
-Incluí el esquema y el puerto de cada origen cuando corresponda. La aplicación carga `.env` al iniciar; las variables ya definidas en el entorno del proceso tienen prioridad.
+- Código de 6 dígitos
+- Vence a los 10 minutos
+- Almacenado hasheado
+- Máximo 5 intentos fallidos antes de requerir un nuevo código
+- Reenvío limitado a 3 veces por hora
 
-El archivo `.env` está excluido de Git. Usá `.env.example` como referencia y
-no subas credenciales reales al repositorio.
 
-## Estado del proyecto
-
-La API incluye el registro inicial de usuarios. La autenticación y las demás
-rutas del dominio de estacionamiento todavía están pendientes.
