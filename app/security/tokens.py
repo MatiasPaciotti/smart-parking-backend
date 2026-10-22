@@ -4,12 +4,16 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 
-
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
-def create_access_token(user_id: int, email: str, role: str) -> str:
+def create_access_token(
+    user_id: int,
+    email: str,
+    role: str,
+    parking_lot_id: str | None = None,
+) -> str:
     secret_key = os.getenv("JWT_SECRET_KEY")
 
     if not secret_key:
@@ -24,6 +28,9 @@ def create_access_token(user_id: int, email: str, role: str) -> str:
         "iat": now,
         "exp": now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     }
+
+    if parking_lot_id is not None:
+        payload["parking_lot_id"] = parking_lot_id
 
     return jwt.encode(payload, secret_key, algorithm=ALGORITHM)
 
