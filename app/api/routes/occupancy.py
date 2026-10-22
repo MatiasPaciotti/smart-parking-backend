@@ -1,6 +1,7 @@
 
 from fastapi import APIRouter, HTTPException, status
 
+from app.api.dependencies import CurrentGuardiaForParkingLot
 from app.repositories.occupancy_repository import get_parking_occupancy
 
 router = APIRouter(
@@ -10,7 +11,10 @@ router = APIRouter(
 
 
 @router.get("/{parking_lot_id}/occupancy")
-def get_occupancy(parking_lot_id: str):
+def get_occupancy(
+    parking_lot_id: str,
+    current_guardia: CurrentGuardiaForParkingLot,
+):
     """Devuelve la ocupación actual del estacionamiento solicitado."""
 
     try:
