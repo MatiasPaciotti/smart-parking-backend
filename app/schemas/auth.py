@@ -22,6 +22,7 @@ class LoginRequest(BaseModel):
         allowed_domains = {
             "unsam.edu.ar",
             "estudiantes.unsam.edu.ar",
+            "unsam-bue.edu.ar",
         }
 
         if domain not in allowed_domains:
