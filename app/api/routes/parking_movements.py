@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.api.dependencies import CurrentGuardiaForParkingLot
+from app.api.dependencies import CurrentUser
 from app.repositories.parking_movement_repository import (
     ParkingLotNotFound,
     ParkingMovementConflict,
@@ -34,7 +34,7 @@ def handle_movement_error(exc: Exception) -> None:
 @router.post("/{parking_lot_id}/entry")
 def enter_parking_lot(
     parking_lot_id: str,
-    current_user: CurrentGuardiaForParkingLot,
+    current_user: CurrentUser,
 ):
     """Registra el ingreso del usuario autenticado a un estacionamiento."""
 
@@ -55,7 +55,7 @@ def enter_parking_lot(
 @router.post("/{parking_lot_id}/exit")
 def exit_parking_lot(
     parking_lot_id: str,
-    current_user: CurrentGuardiaForParkingLot,
+    current_user: CurrentUser,
 ):
     """Registra el egreso del usuario autenticado del estacionamiento."""
 
