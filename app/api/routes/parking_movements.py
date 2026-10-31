@@ -9,7 +9,6 @@ from app.repositories.parking_movement_repository import (
     register_exit,
 )
 
-
 router = APIRouter(
     prefix="/api/v1/parking-lots",
     tags=["Movimientos de estacionamiento"],

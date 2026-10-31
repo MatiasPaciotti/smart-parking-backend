@@ -61,4 +61,3 @@ def get_parking_lot(parking_lot_id: str):
         )
 
     return parking_lot
-

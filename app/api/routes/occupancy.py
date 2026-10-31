@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, HTTPException, status
 
 from app.repositories.occupancy_repository import get_parking_occupancy

@@ -6,7 +6,6 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.security.tokens import decode_access_token
 
-
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
