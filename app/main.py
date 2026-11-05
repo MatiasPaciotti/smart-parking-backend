@@ -31,6 +31,10 @@ def create_app() -> FastAPI:
     def root():
         return {"message": "Smart Parking API funcionando"}
 
+    @application.get("/health")
+    def health():
+        return {"status": "ok"}
+
     return application
 
 
