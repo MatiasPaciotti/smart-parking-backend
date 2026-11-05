@@ -9,12 +9,21 @@ Backend del sistema de gestión y control de acceso a los estacionamientos de lo
 - PostgreSQL
 - Uvicorn
 
+## Estructura
+
+- `app/main.py`: crea la aplicación y registra los routers.
+- `app/api/routes/`: endpoints HTTP y traducción de errores a respuestas.
+- `app/schemas/`: validación de entradas y modelos de respuesta.
+- `app/services/`: reglas del dominio y coordinación de operaciones.
+- `app/repositories/`: consultas y persistencia en PostgreSQL.
+- `app/database.py` y `app/config.py`: conexión y configuración.
+
 ## Requisitos
 
 - Python 3.10 o superior
 - Git
 
-PostgreSQL no es necesario para ejecutar la ruta de prueba actual.
+La ruta de registro requiere una instancia PostgreSQL accesible.
 
 ## Instalación y ejecución
 
@@ -44,14 +53,34 @@ La API queda disponible en <http://127.0.0.1:8000>. La documentación interactiv
 
 ## Rutas disponibles
 
+### Rutas de la API
+
 | Método | Ruta | Descripción |
 | --- | --- | --- |
 | `GET` | `/` | Confirma que la API está en ejecución. |
+| `POST` | `/api/v1/auth/register` | Registra una cuenta no verificada y envía un código. |
+| `POST` | `/api/v1/auth/verify-email` | Verifica el código enviado por correo. |
+| `POST` | `/api/v1/auth/resend-verification` | Reenvía el código, hasta 3 veces por hora. |
 
-## Configuración
+### Detalles de validación
 
-El archivo `.env` está excluido de Git. Aunque el entorno local puede contener variables `DB_*`, la aplicación todavía no las carga ni abre conexiones a PostgreSQL. Cuando se incorpore la configuración de base de datos, agregá un `.env.example` con los nombres de las variables necesarias y documentá su uso aquí; no subas credenciales reales al repositorio.
+**Registro (`POST /api/v1/auth/register`)**
 
-## Estado del proyecto
+Campos requeridos: `nombre`, `apellido`, `email`, `patente`, `dni`, `password`
 
-Esta es una base inicial: por ahora expone una única ruta de comprobación. La integración con PostgreSQL, las rutas del dominio de estacionamiento y sus pruebas todavía están pendientes.
+- **Email**: acepta dominios `@unsam.edu.ar`, `@estudiantes.unsam.edu.ar`, `@unsam-bue.edu.ar`
+- **Contraseña**: entre 8 y 128 caracteres, almacenada con Argon2id y nunca devuelta en la respuesta
+- **Patente**: formato `AAA123` o `AA123AA` (normaliza a mayúsculas y elimina espacios)
+- **Nombre y apellido**: se guardan combinados en `full_name`
+- **Rol**: asignado como `user` por defecto
+- **Estado**: asignado como `active` y `email_verified = false`
+
+**Código de verificación**
+
+- Código de 6 dígitos
+- Vence a los 10 minutos
+- Almacenado hasheado
+- Máximo 5 intentos fallidos antes de requerir un nuevo código
+- Reenvío limitado a 3 veces por hora
+
+
