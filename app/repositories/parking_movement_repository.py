@@ -1,6 +1,7 @@
 
-from app.database import get_database_connection
 from psycopg import errors
+
+from app.database import get_database_connection
 
 PARKING_LOT_IDS = {
     "rodriguez-pena": 1,
@@ -146,3 +147,20 @@ def register_exit(user_id: int, parking_lot_id: str) -> dict:
         "occupied": occupied,
         "capacity": parking_lot[1],
     }
+
+def has_active_vehicle(user_id: int) -> bool:
+    """Indica si el usuario tiene un vehículo actualmente estacionado."""
+
+    with get_database_connection() as connection:
+        row = connection.execute(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM parked_vehicles
+                WHERE user_id = %s
+            )
+            """,
+            (user_id,),
+        ).fetchone()
+
+    return bool(row[0])

@@ -1,14 +1,13 @@
-from psycopg import errors
-
 import pytest
 from fastapi import HTTPException
+from psycopg import errors
 
 from app.api.routes import parking_movements
+from app.repositories import parking_movement_repository
 from app.repositories.parking_movement_repository import (
     ParkingLotNotFound,
     ParkingMovementConflict,
 )
-
 
 TEST_USER = {
     "id": 999999,
@@ -171,3 +170,37 @@ def test_entry_translates_unique_user_constraint_to_conflict(monkeypatch):
         register_entry(999999, "rodriguez-pena")
 
     assert str(error.value) == "El usuario ya tiene un vehículo estacionado"
+
+@pytest.mark.parametrize(
+    ("active_vehicle", "expected"),
+    [
+        (True, True),
+        (False, False),
+    ],
+)
+def test_has_active_vehicle(monkeypatch, active_vehicle, expected):
+    class FakeResult:
+        def fetchone(self):
+            return (active_vehicle,)
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def execute(self, query, params=None):
+            assert "SELECT EXISTS" in query
+            assert params == (999999,)
+            return FakeResult()
+
+    monkeypatch.setattr(
+        parking_movement_repository,
+        "get_database_connection",
+        lambda: FakeConnection(),
+    )
+
+    result = parking_movement_repository.has_active_vehicle(999999)
+
+    assert result is expected
