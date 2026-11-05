@@ -2,12 +2,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes.users import router as users_router
-from app.api.routes.protected import router as protected_router
-from app.api.routes.parking_lots import router as parking_lots_router
+from app.api.routes.entry_qr import router as entry_qr_router
 from app.api.routes.occupancy import router as occupancy_router
+from app.api.routes.parking_lots import router as parking_lots_router
 from app.api.routes.parking_movements import router as parking_movements_router
+from app.api.routes.protected import router as protected_router
+from app.api.routes.users import router as users_router
 from app.config import get_cors_origins
+
 
 def create_app() -> FastAPI:
     application = FastAPI(
@@ -26,6 +28,7 @@ def create_app() -> FastAPI:
     application.include_router(parking_lots_router)
     application.include_router(occupancy_router)
     application.include_router(parking_movements_router)
+    application.include_router(entry_qr_router)
 
     @application.get("/")
     def root():
