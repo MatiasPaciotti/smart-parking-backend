@@ -204,3 +204,105 @@ def test_has_active_vehicle(monkeypatch, active_vehicle, expected):
     result = parking_movement_repository.has_active_vehicle(999999)
 
     assert result is expected
+
+@pytest.mark.parametrize(
+    ("database_id", "parking_lot_name", "expected_id"),
+    [
+        (1, "Rodríguez Peña", "rodriguez-pena"),
+        (2, "Tornavías", "tornavias"),
+    ],
+)
+def test_get_active_vehicle_returns_parking_lot(
+    monkeypatch,
+    database_id,
+    parking_lot_name,
+    expected_id,
+):
+    class FakeResult:
+        def fetchone(self):
+            return (777, database_id, parking_lot_name)
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def execute(self, query, params=None):
+            assert "parked_vehicles" in query
+            assert "parking_lots" in query
+            assert params == (999999,)
+            return FakeResult()
+
+    monkeypatch.setattr(
+        parking_movement_repository,
+        "get_database_connection",
+        lambda: FakeConnection(),
+    )
+
+    result = parking_movement_repository.get_active_vehicle(999999)
+
+    assert result == {
+        "parked_vehicle_id": 777,
+        "parking_lot_id": expected_id,
+        "parking_lot": {
+            "id": expected_id,
+            "name": parking_lot_name,
+        },
+    }
+
+
+def test_get_active_vehicle_returns_none_when_user_is_outside(
+    monkeypatch,
+):
+    class FakeResult:
+        def fetchone(self):
+            return None
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def execute(self, query, params=None):
+            return FakeResult()
+
+    monkeypatch.setattr(
+        parking_movement_repository,
+        "get_database_connection",
+        lambda: FakeConnection(),
+    )
+
+    result = parking_movement_repository.get_active_vehicle(999999)
+
+    assert result is None
+
+
+def test_get_active_vehicle_rejects_unknown_database_parking_lot(
+    monkeypatch,
+):
+    class FakeResult:
+        def fetchone(self):
+            return (777, 999, "Estacionamiento desconocido")
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def execute(self, query, params=None):
+            return FakeResult()
+
+    monkeypatch.setattr(
+        parking_movement_repository,
+        "get_database_connection",
+        lambda: FakeConnection(),
+    )
+
+    with pytest.raises(ParkingLotNotFound):
+        parking_movement_repository.get_active_vehicle(999999)
