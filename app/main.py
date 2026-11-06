@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.entry_qr import router as entry_qr_router
+from app.api.routes.guests import router as guests_router
 from app.api.routes.occupancy import router as occupancy_router
 from app.api.routes.parking_lots import router as parking_lots_router
 from app.api.routes.parking_movements import router as parking_movements_router
@@ -29,6 +30,7 @@ def create_app() -> FastAPI:
     application.include_router(occupancy_router)
     application.include_router(parking_movements_router)
     application.include_router(entry_qr_router)
+    application.include_router(guests_router)
 
     @application.get("/")
     def root():

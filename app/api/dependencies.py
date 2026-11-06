@@ -41,3 +41,18 @@ def get_current_user(
 
 
 CurrentUser = Annotated[dict, Depends(get_current_user)]
+
+
+def require_admin(current_user: CurrentUser) -> dict:
+    """Permite el acceso solo a usuarios con rol de administrador."""
+
+    if current_user["role"] != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tenés permisos de administrador",
+        )
+
+    return current_user
+
+
+AdminUser = Annotated[dict, Depends(require_admin)]
