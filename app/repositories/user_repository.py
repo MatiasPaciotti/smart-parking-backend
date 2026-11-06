@@ -4,6 +4,11 @@ from datetime import datetime
 from app.security.verification_codes import verify_verification_code
 
 
+def delete_user(user_id: int) -> None:
+    with get_database_connection() as connection:
+        connection.execute('DELETE FROM "user" WHERE id = %s', (user_id,))
+
+
 def create_user(
     registration: UserRegistration,
     password_hash: str,

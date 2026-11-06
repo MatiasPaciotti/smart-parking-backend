@@ -14,6 +14,7 @@ from app.services.user_service import (
     DuplicateDataError,
     DuplicateEmailError,
     DuplicatePlateError,
+    discard_unverified_user,
     register_user,
     resend_email_code,
     verify_email_code,
@@ -61,12 +62,10 @@ def register_user_route(registration: UserRegistration) -> UserRegistrationRespo
     try:
         enviar_codigo_verificacion(registration.email, code)
     except EmailDeliveryError as error:
+        discard_unverified_user(user.id)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "La cuenta quedó creada sin verificar, pero no se pudo enviar el "
-                "código. Podés solicitar un reenvío."
-            ),
+            detail="No se pudo enviar el código de verificación. Intentá registrarte de nuevo.",
         ) from error
 
     return UserRegistrationResponse(
