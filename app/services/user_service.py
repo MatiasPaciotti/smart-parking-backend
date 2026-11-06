@@ -2,6 +2,7 @@ import psycopg
 
 from app.repositories.user_repository import (
     create_user,
+    delete_user,
     replace_verification_code,
     verify_user_email,
 )
@@ -44,6 +45,13 @@ def register_user(registration: UserRegistration) -> tuple[UserResponse, str]:
             raise DuplicateEmailError from error
         raise DuplicateDataError from error
     except (psycopg.Error, ValueError) as error:
+        raise DatabaseUnavailableError from error
+
+
+def discard_unverified_user(user_id: int) -> None:
+    try:
+        delete_user(user_id)
+    except psycopg.Error as error:
         raise DatabaseUnavailableError from error
 
 
