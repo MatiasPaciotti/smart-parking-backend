@@ -306,3 +306,109 @@ def test_get_active_vehicle_rejects_unknown_database_parking_lot(
 
     with pytest.raises(ParkingLotNotFound):
         parking_movement_repository.get_active_vehicle(999999)
+
+
+def test_register_entry_updates_is_on_campus_to_true(monkeypatch):
+    updates = []
+
+    class FakeResult:
+        def __init__(self, row):
+            self.row = row
+
+        def fetchone(self):
+            return self.row
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def execute(self, query, params=None):
+            if "FROM parking_lots" in query:
+                return FakeResult((1, 280))
+
+            if "SELECT parking_lot" in query:
+                return FakeResult(None)
+
+            if "SELECT COUNT(*)" in query:
+                return FakeResult((10,))
+
+            if "INSERT INTO parked_vehicles" in query:
+                return FakeResult(None)
+
+            if 'UPDATE "user"' in query:
+                updates.append((query, params))
+                return FakeResult(None)
+
+            raise AssertionError(f"Consulta inesperada: {query}")
+
+    monkeypatch.setattr(
+        parking_movement_repository,
+        "get_database_connection",
+        lambda: FakeConnection(),
+    )
+
+    result = parking_movement_repository.register_entry(
+        999999,
+        "rodriguez-pena",
+    )
+
+    assert result["event_type"] == "entry"
+    assert result["occupied"] == 11
+    assert len(updates) == 1
+    assert "SET is_on_campus = TRUE" in updates[0][0]
+    assert updates[0][1] == (999999,)
+
+
+def test_register_exit_updates_is_on_campus_to_false(monkeypatch):
+    updates = []
+
+    class FakeResult:
+        def __init__(self, row):
+            self.row = row
+
+        def fetchone(self):
+            return self.row
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def execute(self, query, params=None):
+            if "FROM parking_lots" in query:
+                return FakeResult((1, 280))
+
+            if "DELETE FROM parked_vehicles" in query:
+                return FakeResult((777,))
+
+            if 'UPDATE "user"' in query:
+                updates.append((query, params))
+                return FakeResult(None)
+
+            if "SELECT COUNT(*)" in query:
+                return FakeResult((9,))
+
+            raise AssertionError(f"Consulta inesperada: {query}")
+
+    monkeypatch.setattr(
+        parking_movement_repository,
+        "get_database_connection",
+        lambda: FakeConnection(),
+    )
+
+    result = parking_movement_repository.register_exit(
+        999999,
+        "rodriguez-pena",
+        expected_parked_vehicle_id=777,
+    )
+
+    assert result["event_type"] == "exit"
+    assert result["occupied"] == 9
+    assert len(updates) == 1
+    assert "SET is_on_campus = FALSE" in updates[0][0]
+    assert updates[0][1] == (999999,)

@@ -92,6 +92,15 @@ def register_entry(user_id: int, parking_lot_id: str) -> dict:
                 ) from exc
             raise
 
+        connection.execute(
+            """
+            UPDATE "user"
+            SET is_on_campus = TRUE
+            WHERE id = %s
+            """,
+            (user_id,),
+        )
+
     return {
         "parking_lot_id": parking_lot_id,
         "event_type": "entry",
@@ -160,6 +169,15 @@ def register_exit(
             raise ParkingMovementConflict(
                 "El usuario no tiene un vehículo estacionado en ese lugar"
             )
+
+        connection.execute(
+            """
+            UPDATE "user"
+            SET is_on_campus = FALSE
+            WHERE id = %s
+            """,
+            (user_id,),
+        )
 
         occupied = connection.execute(
             """
