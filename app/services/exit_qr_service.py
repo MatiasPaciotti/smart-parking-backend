@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import psycopg
 
 from app.repositories.parking_movement_repository import (
@@ -163,10 +165,26 @@ def scan_exit_qr(qr_token: str) -> dict:
         except ParkingMovementConflict as error:
             raise ExitQrMovementConflict(str(error)) from error
 
+        capacity = movement["capacity"]
+        occupied = movement["occupied"]
+
+        available = capacity - occupied
+
+        occupancy_percentage = (
+            round((occupied / capacity) * 100, 1)
+            if capacity > 0
+            else 0
+        )
+
         return {
             "message": "Egreso registrado correctamente",
+            "full_name": profile["full_name"],
             "plate": profile["plate"],
+            "parking_lot": active_vehicle["parking_lot"],
             **movement,
+            "available": available,
+            "occupancy_percentage": occupancy_percentage,
+            "registered_at": datetime.now(timezone.utc).isoformat(),
         }
 
     except ParkingLotNotFound as error:
