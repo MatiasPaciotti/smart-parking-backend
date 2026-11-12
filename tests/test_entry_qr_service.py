@@ -290,6 +290,7 @@ def test_scan_entry_qr_registers_entry(monkeypatch):
     result = service.scan_entry_qr("valid-token")
 
     assert result["message"] == "Ingreso registrado correctamente"
+    assert result["full_name"] == "Usuario de prueba"
     assert result["plate"] == "ABC123"
     assert result["parking_lot_id"] == "tornavias"
     assert result["event_type"] == "entry"
@@ -347,4 +348,74 @@ def test_scan_entry_qr_rejects_unknown_parking_lot(monkeypatch):
     )
 
     with pytest.raises(service.EntryQrParkingLotNotFound):
+        service.scan_entry_qr("valid-token")
+
+
+@pytest.mark.parametrize(
+    "profile_changes",
+    [
+        {"email_verified": False},
+        {"email": "usuario@gmail.com"},
+        {"role": "admin"},
+    ],
+    ids=[
+        "email-not-verified",
+        "non-institutional-email",
+        "admin-role",
+    ],
+)
+def test_request_entry_qr_rejects_ineligible_user(
+    monkeypatch,
+    profile_changes,
+):
+    profile = {
+        **TEST_PROFILE,
+        **profile_changes,
+    }
+
+    monkeypatch.setattr(
+        service,
+        "get_user_profile_by_id",
+        lambda user_id: profile,
+    )
+
+    with pytest.raises(service.EntryQrUserNotEligible):
+        service.request_entry_qr(10, "tornavias")
+
+
+@pytest.mark.parametrize(
+    "profile_changes",
+    [
+        {"email_verified": False},
+        {"email": "usuario@gmail.com"},
+        {"role": "admin"},
+    ],
+    ids=[
+        "email-not-verified",
+        "non-institutional-email",
+        "admin-role",
+    ],
+)
+def test_scan_entry_qr_rejects_ineligible_user(
+    monkeypatch,
+    profile_changes,
+):
+    profile = {
+        **TEST_PROFILE,
+        **profile_changes,
+    }
+
+    monkeypatch.setattr(
+        service,
+        "decode_entry_qr_token",
+        lambda token: QR_PAYLOAD,
+    )
+
+    monkeypatch.setattr(
+        service,
+        "get_user_profile_by_id",
+        lambda user_id: profile,
+    )
+
+    with pytest.raises(service.EntryQrUserNotEligible):
         service.scan_entry_qr("valid-token")
