@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, SecretStr, field_validator
 
 EMAIL_PATTERN = re.compile(
     r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
-    r"(?:unsam\.edu\.ar|estudiantes\.unsam\.edu\.ar|unsam-bue\.edu\.ar|gmail\.com)$",
+    r"(?:unsam\.edu\.ar|estudiantes\.unsam\.edu\.ar|unsam-bue\.edu\.ar)$",
     re.IGNORECASE,
 )
 PLATE_PATTERN = re.compile(r"^(?:[A-Z]{3}[0-9]{3}|[A-Z]{2}[0-9]{3}[A-Z]{2})$")
@@ -40,7 +40,7 @@ class UserRegistration(BaseModel):
         value = value.strip().lower()
         if not EMAIL_PATTERN.fullmatch(value):
             raise ValueError(
-                "Ingresá un correo válido de @unsam.edu.ar, @estudiantes.unsam.edu.ar, @unsam-bue.edu.ar o @gmail.com"
+                "Ingresá un correo válido de @unsam.edu.ar, @estudiantes.unsam.edu.ar o @unsam-bue.edu.ar"
             )
         local_part = value.split("@", maxsplit=1)[0]
         if ".." in local_part or local_part.startswith(".") or local_part.endswith("."):

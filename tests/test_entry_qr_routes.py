@@ -132,6 +132,7 @@ def test_admin_can_scan_valid_entry_qr(monkeypatch):
 
         return {
             "message": "Ingreso registrado correctamente",
+            "full_name": "Usuario de prueba",
             "parking_lot_id": "tornavias",
             "event_type": "entry",
             "occupied": 11,
@@ -155,6 +156,7 @@ def test_admin_can_scan_valid_entry_qr(monkeypatch):
     assert response.status_code == 200
     assert response.json()["event_type"] == "entry"
     assert response.json()["plate"] == "ABC123"
+    assert response.json()["full_name"] == "Usuario de prueba"
 
 
 def test_admin_scan_rejects_invalid_qr(monkeypatch):
@@ -197,3 +199,52 @@ def test_admin_scan_rejects_duplicate_entry(monkeypatch):
     )
 
     assert response.status_code == 409
+
+
+def test_generate_entry_qr_rejects_ineligible_user(monkeypatch):
+    def fake_request_entry_qr(user_id, parking_lot_id):
+        raise entry_qr_routes.EntryQrUserNotEligible(
+            "Debés verificar tu correo institucional antes de ingresar"
+        )
+
+    monkeypatch.setattr(
+        entry_qr_routes,
+        "request_entry_qr",
+        fake_request_entry_qr,
+    )
+
+    client = create_client(TEST_USER)
+
+    response = client.post(
+        "/api/v1/parking-lots/tornavias/entry/qr"
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "Debés verificar tu correo institucional antes de ingresar"
+    )
+
+
+def test_admin_scan_rejects_ineligible_user(monkeypatch):
+    def fake_scan_entry_qr(token):
+        raise entry_qr_routes.EntryQrUserNotEligible(
+            "El acceso requiere un correo institucional de UNSAM"
+        )
+
+    monkeypatch.setattr(
+        entry_qr_routes,
+        "process_entry_qr_scan",
+        fake_scan_entry_qr,
+    )
+
+    client = create_client(TEST_ADMIN)
+
+    response = client.post(
+        "/api/v1/parking-lots/entry/qr/scan",
+        json={"qr_token": "test-qr-token"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "El acceso requiere un correo institucional de UNSAM"
+    )

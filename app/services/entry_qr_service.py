@@ -8,6 +8,7 @@ from app.repositories.parking_movement_repository import (
     register_entry,
 )
 from app.repositories.user_repository import get_user_profile_by_id
+from app.schemas.user import EMAIL_PATTERN
 from app.security.qr_tokens import (
     ENTRY_QR_EXPIRE_MINUTES,
     create_entry_qr_token,
@@ -55,6 +56,48 @@ class EntryQrMovementConflict(EntryQrError):
     pass
 
 
+class EntryQrUserNotEligible(EntryQrError):
+    pass
+
+
+def _validate_entry_profile(profile: dict) -> str:
+    """Comprueba que el usuario esté autorizado para ingresar."""
+
+    if profile["account_status"] != "active":
+        raise EntryQrUserInactive(
+            "La cuenta no está activa"
+        )
+
+    if profile.get("role") != "user":
+        raise EntryQrUserNotEligible(
+            "Solo los usuarios de la comunidad UNSAM pueden ingresar"
+        )
+
+    if profile.get("email_verified") is not True:
+        raise EntryQrUserNotEligible(
+            "Debés verificar tu correo institucional antes de ingresar"
+        )
+
+    email = profile.get("email")
+
+    if (
+        not isinstance(email, str)
+        or EMAIL_PATTERN.fullmatch(email.strip()) is None
+    ):
+        raise EntryQrUserNotEligible(
+            "El acceso requiere un correo institucional de UNSAM"
+        )
+
+    plate = profile.get("plate")
+
+    if not isinstance(plate, str) or not plate.strip():
+        raise EntryQrProfileIncomplete(
+            "Primero tenés que registrar la patente de tu vehículo"
+        )
+
+    return plate
+
+
 def request_entry_qr(user_id: int, parking_lot_id: str) -> dict:
     """Valida las condiciones de ingreso y genera un QR temporal."""
 
@@ -66,17 +109,7 @@ def request_entry_qr(user_id: int, parking_lot_id: str) -> dict:
                 "No se encontró el usuario"
             )
 
-        if profile["account_status"] != "active":
-            raise EntryQrUserInactive(
-                "La cuenta no está activa"
-            )
-
-        plate = profile["plate"]
-
-        if not plate or not plate.strip():
-            raise EntryQrProfileIncomplete(
-                "Primero tenés que registrar la patente de tu vehículo"
-            )
+        plate = _validate_entry_profile(profile)
 
         if has_active_vehicle(user_id):
             raise EntryQrUserAlreadyInside(
@@ -135,12 +168,9 @@ def scan_entry_qr(qr_token: str) -> dict:
                 "No se encontró el usuario asociado al QR"
             )
 
-        if profile["account_status"] != "active":
-            raise EntryQrUserInactive(
-                "La cuenta no está activa"
-            )
+        plate = _validate_entry_profile(profile)
 
-        if not profile["plate"] or profile["plate"] != payload["plate"]:
+        if plate != payload["plate"]:
             raise EntryQrInvalidToken(
                 "La patente del QR no coincide con la registrada"
             )
@@ -157,6 +187,7 @@ def scan_entry_qr(qr_token: str) -> dict:
 
         return {
             "message": "Ingreso registrado correctamente",
+            "full_name": profile["full_name"],
             "plate": profile["plate"],
             **movement,
         }

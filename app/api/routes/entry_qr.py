@@ -11,6 +11,7 @@ from app.services.entry_qr_service import (
     EntryQrProfileIncomplete,
     EntryQrUserAlreadyInside,
     EntryQrUserInactive,
+    EntryQrUserNotEligible,
     EntryQrUserNotFound,
     request_entry_qr,
 )
@@ -57,7 +58,10 @@ def generate_entry_qr(
             detail=str(exc),
         ) from exc
 
-    except EntryQrUserInactive as exc:
+    except (
+        EntryQrUserInactive,
+        EntryQrUserNotEligible,
+    ) as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(exc),
@@ -122,7 +126,10 @@ def scan_entry_qr_route(
             detail=str(exc),
         ) from exc
 
-    except EntryQrUserInactive as exc:
+    except (
+        EntryQrUserInactive,
+        EntryQrUserNotEligible,
+    ) as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(exc),
