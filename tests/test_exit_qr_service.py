@@ -222,6 +222,12 @@ def test_scan_exit_qr_registers_exit(monkeypatch):
     assert result["plate"] == "ABC123"
     assert result["event_type"] == "exit"
     assert result["occupied"] == 9
+    assert result["full_name"] == "Usuario de prueba"
+    assert result["parking_lot"] == ACTIVE_VEHICLE["parking_lot"]
+    assert result["capacity"] == 280
+    assert result["available"] == 271
+    assert result["occupancy_percentage"] == 3.2
+    assert result["registered_at"].endswith("+00:00")
 
     assert calls == [
         {
