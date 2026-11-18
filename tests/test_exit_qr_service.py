@@ -25,15 +25,11 @@ ACTIVE_VEHICLE = {
     },
 }
 
-EXIT_PAYLOAD = {
-    "sub": "10",
+EXIT_RECORD = {
+    "user_id": 10,
     "plate": "ABC123",
     "parking_lot_id": "tornavias",
-    "purpose": "parking_exit",
-    "jti": "test-exit-qr-001",
     "parked_vehicle_id": 777,
-    "iat": 1000000,
-    "exp": 1000300,
 }
 
 
@@ -69,7 +65,7 @@ def configure_valid_exit_request(monkeypatch):
 
     monkeypatch.setattr(
         service,
-        "create_exit_qr_token",
+        "create_exit_qr_code",
         fake_create_token,
     )
 
@@ -163,8 +159,8 @@ def test_request_exit_qr_rejects_user_without_active_vehicle(
 def test_scan_exit_qr_rejects_invalid_token(monkeypatch):
     monkeypatch.setattr(
         service,
-        "decode_exit_qr_token",
-        lambda token: None,
+        "get_active_exit_qr_code",
+        lambda code: None,
     )
 
     with pytest.raises(service.ExitQrInvalidToken):
@@ -174,8 +170,8 @@ def test_scan_exit_qr_rejects_invalid_token(monkeypatch):
 def test_scan_exit_qr_registers_exit(monkeypatch):
     monkeypatch.setattr(
         service,
-        "decode_exit_qr_token",
-        lambda token: EXIT_PAYLOAD,
+        "get_active_exit_qr_code",
+        lambda code: EXIT_RECORD,
     )
 
     monkeypatch.setattr(
@@ -216,6 +212,13 @@ def test_scan_exit_qr_registers_exit(monkeypatch):
         fake_register_exit,
     )
 
+    used_codes = []
+    monkeypatch.setattr(
+        service,
+        "mark_exit_qr_code_used",
+        lambda code: used_codes.append(code),
+    )
+
     result = service.scan_exit_qr("valid-token")
 
     assert result["message"] == "Egreso registrado correctamente"
@@ -228,6 +231,7 @@ def test_scan_exit_qr_registers_exit(monkeypatch):
     assert result["available"] == 271
     assert result["occupancy_percentage"] == 3.2
     assert result["registered_at"].endswith("+00:00")
+    assert used_codes == ["VALIDTOKEN"]
 
     assert calls == [
         {
@@ -268,8 +272,8 @@ def test_scan_exit_qr_rejects_different_active_vehicle(
 ):
     monkeypatch.setattr(
         service,
-        "decode_exit_qr_token",
-        lambda token: EXIT_PAYLOAD,
+        "get_active_exit_qr_code",
+        lambda code: EXIT_RECORD,
     )
 
     monkeypatch.setattr(
@@ -296,8 +300,8 @@ def test_scan_exit_qr_rejects_changed_plate(monkeypatch):
 
     monkeypatch.setattr(
         service,
-        "decode_exit_qr_token",
-        lambda token: EXIT_PAYLOAD,
+        "get_active_exit_qr_code",
+        lambda code: EXIT_RECORD,
     )
 
     monkeypatch.setattr(
@@ -318,8 +322,8 @@ def test_scan_exit_qr_rejects_inactive_account(monkeypatch):
 
     monkeypatch.setattr(
         service,
-        "decode_exit_qr_token",
-        lambda token: EXIT_PAYLOAD,
+        "get_active_exit_qr_code",
+        lambda code: EXIT_RECORD,
     )
 
     monkeypatch.setattr(
@@ -339,8 +343,8 @@ def test_scan_exit_qr_rejects_movement_conflict(monkeypatch):
 
     monkeypatch.setattr(
         service,
-        "decode_exit_qr_token",
-        lambda token: EXIT_PAYLOAD,
+        "get_active_exit_qr_code",
+        lambda code: EXIT_RECORD,
     )
 
     monkeypatch.setattr(

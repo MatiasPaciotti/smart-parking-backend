@@ -59,7 +59,7 @@ def configure_valid_request(monkeypatch, available=10):
 
     monkeypatch.setattr(
         service,
-        "create_entry_qr_token",
+        "create_entry_qr_code",
         fake_create_token,
     )
 
@@ -185,22 +185,18 @@ def test_request_entry_qr_rejects_full_parking_lot(monkeypatch):
     assert generated_tokens == []
 
 
-QR_PAYLOAD = {
-    "sub": "10",
+QR_RECORD = {
+    "user_id": 10,
     "plate": "ABC123",
     "parking_lot_id": "tornavias",
-    "purpose": "parking_entry",
-    "jti": "test-entry-qr-001",
-    "iat": 1000000,
-    "exp": 1000300,
 }
 
 
 def test_scan_entry_qr_rejects_invalid_token(monkeypatch):
     monkeypatch.setattr(
         service,
-        "decode_entry_qr_token",
-        lambda token: None,
+        "get_active_entry_qr_code",
+        lambda code: None,
     )
 
     with pytest.raises(service.EntryQrInvalidToken):
@@ -210,8 +206,8 @@ def test_scan_entry_qr_rejects_invalid_token(monkeypatch):
 def test_scan_entry_qr_rejects_unknown_user(monkeypatch):
     monkeypatch.setattr(
         service,
-        "decode_entry_qr_token",
-        lambda token: QR_PAYLOAD,
+        "get_active_entry_qr_code",
+        lambda code: QR_RECORD,
     )
     monkeypatch.setattr(
         service,
@@ -231,8 +227,8 @@ def test_scan_entry_qr_rejects_inactive_account(monkeypatch):
 
     monkeypatch.setattr(
         service,
-        "decode_entry_qr_token",
-        lambda token: QR_PAYLOAD,
+        "get_active_entry_qr_code",
+        lambda code: QR_RECORD,
     )
     monkeypatch.setattr(
         service,
@@ -252,8 +248,8 @@ def test_scan_entry_qr_rejects_changed_plate(monkeypatch):
 
     monkeypatch.setattr(
         service,
-        "decode_entry_qr_token",
-        lambda token: QR_PAYLOAD,
+        "get_active_entry_qr_code",
+        lambda code: QR_RECORD,
     )
     monkeypatch.setattr(
         service,
@@ -268,8 +264,8 @@ def test_scan_entry_qr_rejects_changed_plate(monkeypatch):
 def test_scan_entry_qr_registers_entry(monkeypatch):
     monkeypatch.setattr(
         service,
-        "decode_entry_qr_token",
-        lambda token: QR_PAYLOAD,
+        "get_active_entry_qr_code",
+        lambda code: QR_RECORD,
     )
     monkeypatch.setattr(
         service,
@@ -287,6 +283,13 @@ def test_scan_entry_qr_registers_entry(monkeypatch):
         },
     )
 
+    used_codes = []
+    monkeypatch.setattr(
+        service,
+        "mark_entry_qr_code_used",
+        lambda code: used_codes.append(code),
+    )
+
     result = service.scan_entry_qr("valid-token")
 
     assert result["message"] == "Ingreso registrado correctamente"
@@ -295,13 +298,14 @@ def test_scan_entry_qr_registers_entry(monkeypatch):
     assert result["parking_lot_id"] == "tornavias"
     assert result["event_type"] == "entry"
     assert result["occupied"] == 11
+    assert used_codes == ["VALIDTOKEN"]
 
 
 def test_scan_entry_qr_rejects_duplicate_entry(monkeypatch):
     monkeypatch.setattr(
         service,
-        "decode_entry_qr_token",
-        lambda token: QR_PAYLOAD,
+        "get_active_entry_qr_code",
+        lambda code: QR_RECORD,
     )
     monkeypatch.setattr(
         service,
@@ -327,8 +331,8 @@ def test_scan_entry_qr_rejects_duplicate_entry(monkeypatch):
 def test_scan_entry_qr_rejects_unknown_parking_lot(monkeypatch):
     monkeypatch.setattr(
         service,
-        "decode_entry_qr_token",
-        lambda token: QR_PAYLOAD,
+        "get_active_entry_qr_code",
+        lambda code: QR_RECORD,
     )
     monkeypatch.setattr(
         service,
@@ -407,8 +411,8 @@ def test_scan_entry_qr_rejects_ineligible_user(
 
     monkeypatch.setattr(
         service,
-        "decode_entry_qr_token",
-        lambda token: QR_PAYLOAD,
+        "get_active_entry_qr_code",
+        lambda code: QR_RECORD,
     )
 
     monkeypatch.setattr(
@@ -419,3 +423,52 @@ def test_scan_entry_qr_rejects_ineligible_user(
 
     with pytest.raises(service.EntryQrUserNotEligible):
         service.scan_entry_qr("valid-token")
+
+def test_scan_entry_qr_normalizes_manually_typed_code(monkeypatch):
+    searched_codes = []
+
+    monkeypatch.setattr(
+        service,
+        "get_active_entry_qr_code",
+        lambda code: searched_codes.append(code) or None,
+    )
+
+    with pytest.raises(service.EntryQrInvalidToken):
+        service.scan_entry_qr(" k7md-2qxp ")
+
+    assert searched_codes == ["K7MD2QXP"]
+
+
+def test_scan_entry_qr_does_not_consume_code_when_entry_fails(monkeypatch):
+    monkeypatch.setattr(
+        service,
+        "get_active_entry_qr_code",
+        lambda code: QR_RECORD,
+    )
+    monkeypatch.setattr(
+        service,
+        "get_user_profile_by_id",
+        lambda user_id: TEST_PROFILE,
+    )
+
+    def fake_register_entry(user_id, parking_lot_id):
+        raise service.ParkingLotNotFound(
+            "El estacionamiento solicitado no existe"
+        )
+
+    used_codes = []
+    monkeypatch.setattr(
+        service,
+        "register_entry",
+        fake_register_entry,
+    )
+    monkeypatch.setattr(
+        service,
+        "mark_entry_qr_code_used",
+        lambda code: used_codes.append(code),
+    )
+
+    with pytest.raises(service.EntryQrParkingLotNotFound):
+        service.scan_entry_qr("valid-token")
+
+    assert used_codes == []
