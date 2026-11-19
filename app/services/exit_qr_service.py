@@ -2,6 +2,11 @@ from datetime import datetime, timezone
 
 import psycopg
 
+from app.repositories.exit_qr_code_repository import (
+    create_exit_qr_code,
+    get_active_exit_qr_code,
+    mark_exit_qr_code_used,
+)
 from app.repositories.parking_movement_repository import (
     ParkingLotNotFound,
     ParkingMovementConflict,
@@ -9,11 +14,7 @@ from app.repositories.parking_movement_repository import (
     register_exit,
 )
 from app.repositories.user_repository import get_user_profile_by_id
-from app.security.qr_tokens import (
-    EXIT_QR_EXPIRE_MINUTES,
-    create_exit_qr_token,
-    decode_exit_qr_token,
-)
+from app.security.qr_codes import EXIT_QR_EXPIRE_MINUTES, normalize_qr_code
 
 
 class ExitQrError(Exception):
@@ -84,7 +85,7 @@ def request_exit_qr(user_id: int) -> dict:
 
         parking_lot_id = active_vehicle["parking_lot_id"]
 
-        qr_token, expires_at = create_exit_qr_token(
+        qr_code, expires_at = create_exit_qr_code(
             user_id=user_id,
             plate=plate,
             parking_lot_id=parking_lot_id,
@@ -93,7 +94,8 @@ def request_exit_qr(user_id: int) -> dict:
 
         return {
             "message": "QR de salida generado correctamente",
-            "qr_token": qr_token,
+            "qr_token": qr_code,
+            "code": qr_code,
             "plate": plate,
             "parking_lot": active_vehicle["parking_lot"],
             "expires_at": expires_at.isoformat(),
@@ -109,18 +111,20 @@ def request_exit_qr(user_id: int) -> dict:
         ) from error
 
 
-def scan_exit_qr(qr_token: str) -> dict:
-    """Valida un QR de salida y registra el egreso del vehículo."""
+def scan_exit_qr(qr_code: str) -> dict:
+    """Valida un código de salida y registra el egreso del vehículo."""
 
-    payload = decode_exit_qr_token(qr_token)
-
-    if payload is None:
-        raise ExitQrInvalidToken(
-            "El QR de salida es inválido o está vencido"
-        )
+    normalized_code = normalize_qr_code(qr_code)
 
     try:
-        user_id = int(payload["sub"])
+        exit_qr = get_active_exit_qr_code(normalized_code)
+
+        if exit_qr is None:
+            raise ExitQrInvalidToken(
+                "El QR de salida es inválido o está vencido"
+            )
+
+        user_id = exit_qr["user_id"]
         profile = get_user_profile_by_id(user_id)
 
         if profile is None:
@@ -133,7 +137,7 @@ def scan_exit_qr(qr_token: str) -> dict:
                 "La cuenta no está activa"
             )
 
-        if not profile["plate"] or profile["plate"] != payload["plate"]:
+        if not profile["plate"] or profile["plate"] != exit_qr["plate"]:
             raise ExitQrInvalidToken(
                 "La patente del QR no coincide con la registrada"
             )
@@ -146,9 +150,9 @@ def scan_exit_qr(qr_token: str) -> dict:
             )
 
         if (
-            active_vehicle["parking_lot_id"] != payload["parking_lot_id"]
+            active_vehicle["parking_lot_id"] != exit_qr["parking_lot_id"]
             or active_vehicle["parked_vehicle_id"]
-            != payload["parked_vehicle_id"]
+            != exit_qr["parked_vehicle_id"]
         ):
             raise ExitQrInvalidToken(
                 "El QR no corresponde al ingreso activo actual"
@@ -157,13 +161,15 @@ def scan_exit_qr(qr_token: str) -> dict:
         try:
             movement = register_exit(
                 user_id=user_id,
-                parking_lot_id=payload["parking_lot_id"],
-                expected_parked_vehicle_id=payload["parked_vehicle_id"],
+                parking_lot_id=exit_qr["parking_lot_id"],
+                expected_parked_vehicle_id=exit_qr["parked_vehicle_id"],
             )
         except ParkingLotNotFound as error:
             raise ExitQrParkingLotNotFound(str(error)) from error
         except ParkingMovementConflict as error:
             raise ExitQrMovementConflict(str(error)) from error
+
+        mark_exit_qr_code_used(normalized_code)
 
         capacity = movement["capacity"]
         occupied = movement["occupied"]
